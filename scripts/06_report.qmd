@@ -1,0 +1,6 @@
+# 06_report.qmd
+# Purpose: Automated Word report rendered by the pipeline
+# Produces a .docx report with all required charts and sections
+# No manual copy paste of figures or numbers
+# Author: Shoaib
+# Date: April 2026
