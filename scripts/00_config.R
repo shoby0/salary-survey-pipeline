@@ -4,13 +4,13 @@
 # No data processing happens in this script
 # Every other script sources this file first before doing anything
 # Author: Shoaib
-# Date: 23 April 2026
+# Date: April 2026
 
-# Path to the raw Excel file provided for the assessment
-raw_data_path <- "C:/Users/sharoon/OneDrive - Bureau of Statistics/Documents/Gavin Work Assignments - Test Projects/Ask A Manager Salary Survey 2021/download/Ask A Manager Salary Survey 2021.xlsx"
+# Path to the raw Excel file stored in the raw folder
+raw_data_path <- "raw/ask_a_manager_salary_survey_2021.xlsx"
 
 # Folder where raw data is stored and never modified
-data_raw_path <- "data_raw/"
+raw_path <- "raw/"
 
 # Folder where intermediate cleaned data is saved between stages
 data_clean_path <- "data_clean/"
@@ -18,8 +18,8 @@ data_clean_path <- "data_clean/"
 # Folder where final outputs are saved including all four export formats
 outputs_path <- "outputs/"
 
-# Folder where weekly Friday progress reports are saved
-reports_path <- "weekly_reports/"
+# Folder where reports are saved including Friday reports and problem inventory
+reports_path <- "reports/"
 
 # Expected number of rows and columns when the raw file is loaded
 # Used in 01_ingest.R to confirm the data loaded correctly
