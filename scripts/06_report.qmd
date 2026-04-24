@@ -1,6 +1,38 @@
-# 06_report.qmd
-# Purpose: Automated Word report rendered by the pipeline
-# Produces a .docx report with all required charts and sections
-# No manual copy paste of figures or numbers
-# Author: Shoaib
-# Date: April 2026
+---
+title: "Salary Survey Data Cleaning Pipeline Report"
+author: "Shoaib"
+date: "April 2026"
+format: docx
+---
+
+# Overview
+
+This report is generated automatically by the pipeline.
+It documents the full data cleaning and imputation process
+applied to the Ask A Manager Salary Survey 2021 dataset.
+
+# Dataset Overview
+
+Source: Ask A Manager Salary Survey 2021
+Raw size: 28,215 rows x 18 columns
+Download date: April 2026
+
+# Data Quality Diagnostics
+
+To be completed in Week 2.
+
+# Cleaning Decisions
+
+To be completed in Week 2.
+
+# Imputation Applied
+
+To be completed in Week 3.
+
+# Post Cleaning Summary
+
+To be completed in Week 3.
+
+# Limitations and Known Risks
+
+To be completed in Week 3.
