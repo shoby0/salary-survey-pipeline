@@ -7,7 +7,7 @@
 # Date: April 2026
 
 # Path to the raw Excel file stored in the raw folder
-raw_data_path <- "raw/ask_a_manager_salary_survey_2021.xlsx"
+raw_data_path <- "raw/Ask A Manager Salary Survey 2021.xlsx"
 
 # Folder where raw data is stored and never modified
 raw_path <- "raw/"

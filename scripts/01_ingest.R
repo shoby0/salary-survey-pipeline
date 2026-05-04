@@ -35,7 +35,7 @@ print(names(df_raw))
 cat("Data types for each column:\n")
 print(sapply(df_raw, class))
 
-saveRDS(df_raw, file = paste0(data_raw_path, "raw_data.rds"))
+saveRDS(df_raw, file = paste0(raw_path, "raw_data.rds"))
 
 cat("Raw data saved to data_raw folder\n")
 cat("Ingest complete\n")
