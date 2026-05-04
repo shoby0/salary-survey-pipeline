@@ -16,41 +16,22 @@ cat("Starting cleaning pipeline\n")
 cat("Rows at start:", nrow(df_raw), "\n")
 cat("Columns at start:", ncol(df_raw), "\n\n")
 
-# Make a working copy of the raw data
-# The raw data is never modified - all changes happen on this copy
 df <- df_raw
 
-# Give columns short readable names so the code is easier to read
 colnames(df) <- c(
-  "timestamp",
-  "age",
-  "industry",
-  "job_title",
-  "job_title_context",
-  "annual_salary",
-  "additional_comp",
-  "currency",
-  "currency_other",
-  "income_context",
-  "country",
-  "us_state",
-  "city",
-  "exp_overall",
-  "exp_field",
-  "education",
-  "gender",
-  "race"
+  "timestamp", "age", "industry", "job_title", "job_title_context",
+  "annual_salary", "additional_comp", "currency", "currency_other",
+  "income_context", "country", "us_state", "city", "exp_overall",
+  "exp_field", "education", "gender", "race"
 )
 
-cat("Column names standardised to short readable names\n\n")
-
+cat("Column names standardised\n\n")
 
 # ===========================================================================
-# STAGE 1: Strip leading and trailing whitespace from all text columns
-# Why: 1708 country entries alone had invisible spaces causing duplicates
-# This must be done first before any other cleaning
+# STAGE 1: Strip whitespace from all text columns
+# Why: Invisible spaces cause duplicates and mismatches in all text columns
+# Must be done first before any other cleaning
 # ===========================================================================
-
 cat("--- STAGE 1: Strip whitespace from all text columns ---\n")
 
 text_cols <- c("age", "industry", "job_title", "job_title_context",
@@ -63,46 +44,40 @@ for (col in text_cols) {
   df[[col]][df[[col]] == "" | df[[col]] == "NA"] <- NA
 }
 
+# Replace city na text entries with actual NA
+df$city[!is.na(df$city) & tolower(df$city) %in% c("na", "n/a", "none", "n.a.", "n.a")] <- NA
+
 cat("Whitespace stripped from all text columns\n")
-cat("Whitespace-only entries converted to NA\n\n")
+cat("City na text entries converted to NA\n\n")
 
 
 # ===========================================================================
-# STAGE 2: Flag timestamp entries outside the 2021 survey period
-# Why: The survey was conducted in 2021 but 618 entries have timestamps
-# from 2022 through 2026 which are outside the expected collection window
-# We flag them but keep them in the dataset
+# STAGE 2: Flag timestamps outside the 2021 survey period
+# Why: 618 entries have timestamps from 2022 to 2026 which are outside
+# the expected data collection window for this survey
 # ===========================================================================
-
 cat("--- STAGE 2: Flag timestamps outside 2021 survey period ---\n")
 cat("Rows before:", nrow(df), "\n")
 
 df$timestamp_flag <- ifelse(
   format(df$timestamp, "%Y") != "2021",
-  "outside survey year",
-  "ok"
+  "outside survey year", "ok"
 )
 
-flagged_ts <- sum(df$timestamp_flag == "outside survey year")
-cat("Timestamps flagged as outside 2021:", flagged_ts, "\n")
+cat("Timestamps flagged as outside 2021:", sum(df$timestamp_flag == "outside survey year"), "\n")
 cat("Rows after:", nrow(df), "(no rows removed)\n\n")
 
 
 # ===========================================================================
 # STAGE 3: Normalise country names
-# Why: The country column has 390 unique values but most are the same country
-# written in different ways. USA alone has over 50 variants.
-# We map all known variants to a single canonical name.
-# Entries that cannot be mapped are flagged as invalid.
+# Why: 390 unique country values found - most are the same country written
+# differently. USA alone had over 50 variants. All mapped to canonical names.
 # ===========================================================================
-
 cat("--- STAGE 3: Normalise country names ---\n")
 cat("Unique country values before:", length(unique(df$country)), "\n")
 
-# Fix internal double spaces first
 df$country <- str_replace_all(df$country, "\\s+", " ")
 
-# United States variants
 us_variants <- c(
   "USA", "US", "U.S.", "Usa", "usa", "United states", "united states",
   "United States of America", "U.S.A.", "Us", "us", "U.S.A", "America",
@@ -132,10 +107,10 @@ us_variants <- c(
   "Japan, US Gov position",
   "I work for a UAE-based organization, though I am personally in the US.",
   "United States of American", "United Sates of America",
-  "United Status", "Unted States", "United States of Americans"
+  "United Status", "Unted States", "United States of Americans",
+  "United States Of America", "Unite States", "america"
 )
 
-# United Kingdom variants
 uk_variants <- c(
   "UK", "Uk", "uk", "United Kingdom", "United kingdom", "united kingdom",
   "England", "england", "ENGLAND", "Englang", "Scotland", "Wales",
@@ -147,48 +122,53 @@ uk_variants <- c(
   "UK (northern England)", "U.K. (northern England)", "Unites kingdom",
   "United Kingdom (England)", "United Kingdom.", "Isle of Man",
   "Jersey, Channel islands", "UK, remote",
-  "UK, but for globally fully remote company", "UK for U.S. company"
+  "UK, but for globally fully remote company", "UK for U.S. company",
+  "London"
 )
 
-# Canada variants
 canada_variants <- c(
   "canada", "CANADA", "Canda", "Canadw", "Csnada", "Can", "Canad",
   "Canada, Ottawa, ontario", "Canada and USA", "Canad\u00e1",
   "I am located in Canada but I work for a company in the US"
 )
 
-# Other country variants
-australia_variants    <- c("australia", "Australi", "Australian")
-netherlands_variants  <- c("The Netherlands", "netherlands", "the Netherlands", "The netherlands", "Nederland", "NL")
-newzealand_variants   <- c("NZ", "New zealand", "new zealand", "New Zealand Aotearoa", "Aotearoa New Zealand", "From New Zealand but on projects across APAC")
-germany_variants      <- c("germany")
-france_variants       <- c("FRANCE", "france")
-ireland_variants      <- c("ireland")
-switzerland_variants  <- c("SWITZERLAND", "switzerland")
-denmark_variants      <- c("denmark", "Danemark")
-india_variants        <- c("india", "INDIA", "ibdia")
-italy_variants        <- c("Italia", "Italy (South)")
-spain_variants        <- c("spain", "Catalonia")
-singapore_variants    <- c("singapore")
-japan_variants        <- c("japan")
-brazil_variants       <- c("Brasil")
-mexico_variants       <- c("M\u00e9xico")
-czechrepublic_variants <- c("Czech republic", "czech republic", "\u010cesk\u00e1 republika", "Czechia")
-southafrica_variants  <- c("South africa")
-croatia_variants      <- c("croatia")
-finland_variants      <- c("finland")
-pakistan_variants     <- c("pakistan", "Company in Germany. I work from Pakistan.")
-philippines_variants  <- c("philippines", "Remote (philippines)")
-hongkong_variants     <- c("Hong KongKong", "hong konh")
-nigeria_variants      <- c("NIGERIA", "Nigeria + UK")
-luxembourg_variants   <- c("Luxemburg")
-myanmar_variants      <- c("Burma")
-uae_variants          <- c("UAE", "United Arab Emirates")
-argentina_variants    <- c("ARGENTINA BUT MY ORG IS IN THAILAND", "I work for an US based company but I'm from Argentina.")
-romania_variants      <- c("From Romania, but for an US based company")
-austria_variants      <- c("Austria, but I work remotely for a Dutch/British company")
+australia_variants   <- c("australia", "Australi", "Australian")
+netherlands_variants <- c("The Netherlands", "netherlands", "the Netherlands",
+                          "The netherlands", "Nederland", "NL", "the netherlands")
+newzealand_variants  <- c("NZ", "New zealand", "new zealand", "New Zealand Aotearoa",
+                          "Aotearoa New Zealand",
+                          "From New Zealand but on projects across APAC")
+germany_variants     <- c("germany")
+france_variants      <- c("FRANCE", "france")
+ireland_variants     <- c("ireland")
+switzerland_variants <- c("SWITZERLAND", "switzerland")
+denmark_variants     <- c("denmark", "Danemark", "Danmark")
+india_variants       <- c("india", "INDIA", "ibdia")
+italy_variants       <- c("Italia", "Italy (South)")
+spain_variants       <- c("spain", "Catalonia")
+singapore_variants   <- c("singapore")
+japan_variants       <- c("japan")
+brazil_variants      <- c("Brasil")
+mexico_variants      <- c("M\u00e9xico")
+czechrepublic_variants <- c("Czech republic", "czech republic",
+                            "\u010cesk\u00e1 republika", "Czechia")
+southafrica_variants <- c("South africa")
+croatia_variants     <- c("croatia")
+finland_variants     <- c("finland")
+pakistan_variants    <- c("pakistan", "Company in Germany. I work from Pakistan.")
+philippines_variants <- c("philippines", "Remote (philippines)")
+hongkong_variants    <- c("Hong KongKong", "hong konh", "Mainland China")
+nigeria_variants     <- c("NIGERIA", "Nigeria + UK")
+luxembourg_variants  <- c("Luxemburg")
+myanmar_variants     <- c("Burma")
+uae_variants         <- c("UAE", "United Arab Emirates")
+argentina_variants   <- c("ARGENTINA BUT MY ORG IS IN THAILAND",
+                          "I work for an US based company but I'm from Argentina.")
+romania_variants     <- c("From Romania, but for an US based company")
+austria_variants     <- c("Austria, but I work remotely for a Dutch/British company")
+srilanka_variants    <- c("Sri lanka")
+panama_variants      <- c("Pana\u00e1", "Panam\u00e1")
 
-# Apply all mappings
 df$country[df$country %in% us_variants]            <- "United States"
 df$country[df$country %in% uk_variants]            <- "United Kingdom"
 df$country[df$country %in% canada_variants]        <- "Canada"
@@ -221,19 +201,16 @@ df$country[df$country %in% uae_variants]           <- "United Arab Emirates"
 df$country[df$country %in% argentina_variants]     <- "Argentina"
 df$country[df$country %in% romania_variants]       <- "Romania"
 df$country[df$country %in% austria_variants]       <- "Austria"
-
-# Handle emoji USA flag
+df$country[df$country %in% srilanka_variants]      <- "Sri Lanka"
+df$country[df$country %in% panama_variants]        <- "Panama"
 df$country[df$country == "\U0001f1fa\U0001f1f8"]   <- "United States"
-
-# Handle accented Canada
 df$country[df$country == "Canad\u00e1"]            <- "Canada"
 
-# Flag clearly invalid entries
 invalid_country_patterns <- c(
-  "ss", "ff", "dbfemf", "LOUTREALAND", "1", "na", "Y", "uS",
+  "ss", "ff", "dbfemf", "LOUTREALAND", "1", "1.0", "na", "Y",
   "Remote", "Global", "International", "Africa", "europe",
-  "Currently finance", "Policy", "USD",
-  "n/a (remote from wherever I want)",
+  "Currently finance", "Policy", "USD", "U.A.", "UA", "UXZ",
+  "Contracts", "n/a (remote from wherever I want)",
   "We don't get raises, we get quarterly bonuses, but they periodically asses income in the area you work, so I got a raise because a 3rd party assessment showed I was paid too little for the area we were located",
   "bonus based on meeting yearly goals set w/ my supervisor",
   "I earn commission on sales. If I meet quota, I'm guaranteed another 16k min. Last year i earned an additional 27k. It's not uncommon for people in my space to earn 100k+ after commission.",
@@ -243,22 +220,18 @@ invalid_country_patterns <- c(
 
 df$country_flag <- ifelse(
   df$country %in% invalid_country_patterns | is.na(df$country),
-  "invalid or missing",
-  "ok"
+  "invalid or missing", "ok"
 )
 
-flagged_country <- sum(df$country_flag == "invalid or missing")
-cat("Country entries flagged as invalid or missing:", flagged_country, "\n")
+cat("Country entries flagged as invalid or missing:", sum(df$country_flag == "invalid or missing"), "\n")
 cat("Unique country values after:", length(unique(df$country[df$country_flag == "ok"])), "\n\n")
 
 
 # ===========================================================================
 # STAGE 4: Flag salary outliers using IQR method
-# Why: Salaries range from 0 to 6 billion. We use IQR to identify
-# statistical outliers and flag them. Zero salaries are flagged separately.
-# We never drop any rows.
+# Why: Salaries range from 0 to 6 billion. IQR flags statistical outliers.
+# Zero salaries flagged separately. No rows are dropped.
 # ===========================================================================
-
 cat("--- STAGE 4: Flag salary outliers ---\n")
 cat("Rows before:", nrow(df), "\n")
 
@@ -272,10 +245,10 @@ cat("IQR Q3:", q3, "\n")
 cat("IQR upper fence:", upper_fence, "\n")
 
 df$salary_flag <- case_when(
-  df$annual_salary == 0         ~ "zero salary",
-  df$annual_salary < 1000       ~ "below minimum threshold",
+  df$annual_salary == 0          ~ "zero salary",
+  df$annual_salary < 1000        ~ "below minimum threshold",
   df$annual_salary > upper_fence ~ "above IQR upper fence",
-  TRUE                          ~ "ok"
+  TRUE                           ~ "ok"
 )
 
 cat("Zero salaries flagged:", sum(df$salary_flag == "zero salary"), "\n")
@@ -286,16 +259,16 @@ cat("Rows after:", nrow(df), "(no rows removed)\n\n")
 
 # ===========================================================================
 # STAGE 5: Flag additional compensation issues
-# Why: 34 entries above 500k, max is 120 million. Missing entries flagged
-# as unknown since we cannot tell if zero or skipped.
+# Why: 7372 missing entries and 34 entries above 500k including one at
+# 120 million. Missing flagged as unknown since we cannot confirm if
+# it means zero or if the respondent skipped the question.
 # ===========================================================================
-
 cat("--- STAGE 5: Flag additional compensation issues ---\n")
 
 df$additional_comp_flag <- case_when(
-  is.na(df$additional_comp)       ~ "missing - unknown if zero or skipped",
-  df$additional_comp > 500000     ~ "above 500k - potential outlier",
-  TRUE                            ~ "ok"
+  is.na(df$additional_comp)      ~ "missing - unknown if zero or skipped",
+  df$additional_comp > 500000    ~ "above 500k - potential outlier",
+  TRUE                           ~ "ok"
 )
 
 cat("Additional comp missing:", sum(df$additional_comp_flag == "missing - unknown if zero or skipped"), "\n")
@@ -304,9 +277,9 @@ cat("Additional comp above 500k:", sum(df$additional_comp_flag == "above 500k - 
 
 # ===========================================================================
 # STAGE 6: Normalise industry column
-# Why: 96 fully lowercase entries and near-duplicates like Library vs Libraries
+# Why: 96 fully lowercase entries found and near-duplicates like
+# Library (51 entries) and Libraries (50 entries) which mean the same thing
 # ===========================================================================
-
 cat("--- STAGE 6: Normalise industry column ---\n")
 cat("Unique industry values before:", length(unique(df$industry)), "\n")
 
@@ -318,23 +291,27 @@ df$industry <- ifelse(
 
 df$industry[!is.na(df$industry) & df$industry == "Libraries"]     <- "Library"
 df$industry[!is.na(df$industry) & df$industry == "Public Library"] <- "Library"
+df$industry[!is.na(df$industry) & df$industry == "LIBRARIES"]     <- "Library"
 
 cat("Unique industry values after:", length(unique(df$industry)), "\n\n")
 
 
 # ===========================================================================
 # STAGE 7: Flag invalid job title entries
-# Why: 4 missing, 2 that are just a dash, 1 that is just the number 1
+# Why: 4 missing job titles, 2 entries that are just a dash, 1 that is
+# just the number 1. Flag computed after all cleaning so NA detection
+# catches all missing values regardless of when they were introduced.
 # ===========================================================================
-
 cat("--- STAGE 7: Flag invalid job title entries ---\n")
 
 df$job_title_flag <- case_when(
-  is.na(df$job_title)  ~ "missing",
   df$job_title == "-"  ~ "invalid - punctuation only",
   df$job_title == "1"  ~ "invalid - numeric only",
   TRUE                 ~ "ok"
 )
+
+# Recompute after case_when to catch all NA values correctly
+df$job_title_flag[is.na(df$job_title)] <- "missing"
 
 cat("Missing job titles:", sum(df$job_title_flag == "missing"), "\n")
 cat("Invalid job titles:", sum(df$job_title_flag %in% c("invalid - punctuation only", "invalid - numeric only")), "\n\n")
@@ -343,15 +320,13 @@ cat("Invalid job titles:", sum(df$job_title_flag %in% c("invalid - punctuation o
 # ===========================================================================
 # STAGE 8: Normalise gender category
 # Why: Prefer not to answer (1 entry) and Other or prefer not to answer
-# (298 entries) mean the same thing. Merge into one standard category.
+# (298 entries) mean the same thing. Merged into one standard category.
 # ===========================================================================
-
 cat("--- STAGE 8: Normalise gender category ---\n")
 cat("Gender values before:\n")
 print(table(df$gender, useNA = "always"))
 
 df$gender[!is.na(df$gender) & df$gender == "Prefer not to answer"] <- "Other or prefer not to answer"
-
 df$gender_flag <- ifelse(is.na(df$gender), "missing", "ok")
 
 cat("Gender values after:\n")
@@ -361,13 +336,10 @@ cat("Missing gender entries:", sum(df$gender_flag == "missing"), "\n\n")
 
 # ===========================================================================
 # STAGE 9: Standardise experience band formatting
-# Why: Some bands use 5-7 years and others use 8 - 10 years with spaces
-# Standardise all to use spaces around the dash
+# Why: Bands used inconsistent spacing. Some used 5-7 years while others
+# used 8 - 10 years with spaces. Standardised all to use spaces around dash.
 # ===========================================================================
-
 cat("--- STAGE 9: Standardise experience band formatting ---\n")
-cat("Exp overall before:\n")
-print(table(df$exp_overall))
 
 df$exp_overall <- str_replace_all(df$exp_overall, "^5-7 years$", "5 - 7 years")
 df$exp_field   <- str_replace_all(df$exp_field,   "^5-7 years$", "5 - 7 years")
@@ -379,21 +351,17 @@ cat("\n")
 
 # ===========================================================================
 # STAGE 10: Flag logical inconsistencies in experience vs age
-# Why: 265 rows have field experience exceeding overall experience
-# 13 rows show age under 25 but claim 11 or more years experience
+# Why: 265 rows have field experience exceeding overall experience which
+# is logically impossible. 12 rows show age under 25 with 11 or more
+# years of experience which is also impossible.
 # ===========================================================================
-
 cat("--- STAGE 10: Flag experience and age logic errors ---\n")
 
 exp_order <- c(
-  "1 year or less"   = 1,
-  "2 - 4 years"      = 2,
-  "5 - 7 years"      = 3,
-  "8 - 10 years"     = 4,
-  "11 - 20 years"    = 5,
-  "21 - 30 years"    = 6,
-  "31 - 40 years"    = 7,
-  "41 years or more" = 8
+  "1 year or less"   = 1, "2 - 4 years"      = 2,
+  "5 - 7 years"      = 3, "8 - 10 years"     = 4,
+  "11 - 20 years"    = 5, "21 - 30 years"    = 6,
+  "31 - 40 years"    = 7, "41 years or more"  = 8
 )
 
 overall_rank <- exp_order[df$exp_overall]
@@ -413,9 +381,9 @@ cat("Suspicious age vs experience:", sum(df$experience_flag == "suspicious - hig
 
 # ===========================================================================
 # STAGE 11: Flag invalid city entries
-# Why: Zip codes, dashes and remote entries found in city column
+# Why: City column had zip codes, dashes and remote entries which are
+# not valid city names. Na text entries already converted to NA in Stage 1.
 # ===========================================================================
-
 cat("--- STAGE 11: Flag invalid city entries ---\n")
 
 remote_terms <- c(
@@ -425,41 +393,38 @@ remote_terms <- c(
 )
 
 df$city_flag <- case_when(
-  is.na(df$city)                                       ~ "missing",
-  df$city %in% remote_terms                            ~ "remote worker - not a city",
-  str_detect(df$city, "^\\d+$")                        ~ "invalid - numeric only",
-  df$city == "-"                                       ~ "invalid - punctuation only",
-  tolower(df$city) %in% c("na", "n/a", "none", "n.a") ~ "invalid - not applicable entry",
-  TRUE                                                 ~ "ok"
+  is.na(df$city)                 ~ "missing",
+  df$city %in% remote_terms      ~ "remote worker - not a city",
+  str_detect(df$city, "^\\d+$")  ~ "invalid - numeric only",
+  df$city == "-"                 ~ "invalid - punctuation only",
+  TRUE                           ~ "ok"
 )
 
 cat("Missing city:", sum(df$city_flag == "missing"), "\n")
 cat("Remote worker entries:", sum(df$city_flag == "remote worker - not a city"), "\n")
-cat("Other invalid city entries:", sum(df$city_flag %in% c("invalid - numeric only", "invalid - punctuation only", "invalid - not applicable entry")), "\n\n")
+cat("Other invalid:", sum(df$city_flag %in% c("invalid - numeric only", "invalid - punctuation only")), "\n\n")
 
 
 # ===========================================================================
 # STAGE 12: Extract first state from multi-state US state entries
-# Why: 114 entries have multiple states listed in one cell
-# We extract the first one as the primary work location
+# Why: 114 entries had multiple states in one cell. Extracted first state
+# as the primary work location.
 # ===========================================================================
-
 cat("--- STAGE 12: Extract first state from multi-state entries ---\n")
 
-multi_state_before <- sum(str_detect(df$us_state, ","), na.rm = TRUE)
-cat("Multi-state entries before:", multi_state_before, "\n")
+multi_before <- sum(str_detect(df$us_state, ","), na.rm = TRUE)
+cat("Multi-state entries before:", multi_before, "\n")
 
 df$us_state <- str_trim(str_extract(df$us_state, "^[^,]+"))
 
-multi_state_after <- sum(str_detect(df$us_state, ","), na.rm = TRUE)
-cat("Multi-state entries after:", multi_state_after, "\n\n")
+cat("Multi-state entries after:", sum(str_detect(df$us_state, ","), na.rm = TRUE), "\n\n")
 
 
 # ===========================================================================
 # STAGE 13: Standardise currency other column
-# Why: Case inconsistencies like Dkk vs DKK and numeric entry of 11
+# Why: Case inconsistencies found like Dkk vs DKK. Numeric entries and
+# sentence entries that are clearly not currency codes are flagged.
 # ===========================================================================
-
 cat("--- STAGE 13: Standardise currency other column ---\n")
 
 df$currency_other <- toupper(df$currency_other)
@@ -467,20 +432,24 @@ df$currency_other <- toupper(df$currency_other)
 df$currency_other_flag <- case_when(
   is.na(df$currency_other) & df$currency == "Other" ~
     "missing - currency not specified",
-  !is.na(df$currency_other) & str_detect(df$currency_other, "^\\d+$") ~
+  !is.na(df$currency_other) & grepl("^[0-9.]+$", df$currency_other) ~
     "invalid - numeric entry",
+  !is.na(df$currency_other) & nchar(df$currency_other) > 10 &
+    grepl("BONUS|COMMISSION|SALARY|STOCK|EQUITY|PERFORMANCE|OVERTIME|GRANT|UNIVERSITY|SUPPORT|OVERTIME", df$currency_other) ~
+    "invalid - not a currency code",
   TRUE ~ "ok"
 )
 
-cat("Currency Other missing when should be filled:", sum(df$currency_other_flag == "missing - currency not specified", na.rm = TRUE), "\n")
-cat("Currency Other invalid numeric entries:", sum(df$currency_other_flag == "invalid - numeric entry", na.rm = TRUE), "\n\n")
+cat("Missing when should be filled:", sum(df$currency_other_flag == "missing - currency not specified", na.rm = TRUE), "\n")
+cat("Invalid numeric entries:", sum(df$currency_other_flag == "invalid - numeric entry", na.rm = TRUE), "\n")
+cat("Invalid non-currency entries:", sum(df$currency_other_flag == "invalid - not a currency code", na.rm = TRUE), "\n\n")
 
 
 # ===========================================================================
 # STAGE 14: Flag currency vs country cross-column inconsistency
-# Why: 46 non-US respondents reported salary in USD
+# Why: 110 non-US respondents reported salary in USD. May be legitimate
+# but flagged for transparency.
 # ===========================================================================
-
 cat("--- STAGE 14: Flag currency vs country inconsistency ---\n")
 
 clearly_non_us <- c(
@@ -498,20 +467,17 @@ df$currency_country_flag <- case_when(
   TRUE ~ "ok"
 )
 
-cat("USD reported for clearly non-US country:", sum(df$currency_country_flag == "note - USD reported for non-US country"), "\n\n")
+cat("USD for non-US country:", sum(df$currency_country_flag == "note - USD reported for non-US country"), "\n\n")
 
 
 # ===========================================================================
 # STAGE 15: Flag missing education entries
-# Why: 240 entries missing - will be imputed in 04_impute.R
+# Why: 240 entries missing education - will be imputed in 04_impute.R
 # ===========================================================================
-
 cat("--- STAGE 15: Flag missing education entries ---\n")
 
 df$education_flag <- ifelse(
-  is.na(df$education),
-  "missing - to be imputed in 04_impute.R",
-  "ok"
+  is.na(df$education), "missing - to be imputed in 04_impute.R", "ok"
 )
 
 cat("Missing education entries:", sum(df$education_flag == "missing - to be imputed in 04_impute.R"), "\n\n")
@@ -519,15 +485,12 @@ cat("Missing education entries:", sum(df$education_flag == "missing - to be impu
 
 # ===========================================================================
 # STAGE 16: Flag missing race entries
-# Why: 196 entries missing - will be imputed in 04_impute.R
+# Why: 196 entries missing race - will be imputed in 04_impute.R
 # ===========================================================================
-
 cat("--- STAGE 16: Flag missing race entries ---\n")
 
 df$race_flag <- ifelse(
-  is.na(df$race),
-  "missing - to be imputed in 04_impute.R",
-  "ok"
+  is.na(df$race), "missing - to be imputed in 04_impute.R", "ok"
 )
 
 cat("Missing race entries:", sum(df$race_flag == "missing - to be imputed in 04_impute.R"), "\n\n")
@@ -536,7 +499,6 @@ cat("Missing race entries:", sum(df$race_flag == "missing - to be imputed in 04_
 # ===========================================================================
 # FINAL SUMMARY
 # ===========================================================================
-
 cat("=== CLEANING COMPLETE ===\n")
 cat("Rows at end:", nrow(df), "\n")
 cat("Columns at end:", ncol(df), "\n")
@@ -552,7 +514,6 @@ for (col in flag_cols) {
   print(table(df[[col]], useNA = "always"))
 }
 
-# Save the cleaned dataset to the data_clean folder
 saveRDS(df, file = paste0(data_clean_path, "df_clean.rds"))
 cat("\nCleaned dataset saved to:", paste0(data_clean_path, "df_clean.rds"), "\n")
 cat("Cleaning pipeline complete\n")
