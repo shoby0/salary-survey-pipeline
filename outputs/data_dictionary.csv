@@ -5,7 +5,7 @@
 "job_title","character","Job title of respondent","Freetext",0,0,"Left missing - freetext","1 missing, 2 flagged as invalid punctuation only entries"
 "job_title_context","character","Additional context for job title","Freetext - optional",74.18,74.19,"Left missing - structural skip pattern","74% missing - structural optional field"
 "annual_salary","numeric","Annual salary in stated currency","Numeric - range 0 to 6000070000",0,0,"None required - complete","34 zeros, 102 below 1000, 1218 above IQR fence flagged"
-"additional_comp","character","Additional monetary compensation","Numeric - range 0 to 120000000",26.13,0,"Constant imputation with 0 - survey wording indicates no bonus","7372 imputed with 0, 2045 above 500k flagged"
+"additional_comp","numeric","Additional monetary compensation","Numeric - range 0 to 120000000",26.13,0,"Constant imputation with 0 - survey wording indicates no bonus","7372 imputed with 0, 2045 above 500k flagged"
 "currency","character","Currency of salary","USD, CAD, GBP, EUR, AUD/NZD, CHF, SEK, JPY, ZAR, HKD, Other",0,0,"None required - complete","11 valid currency categories"
 "currency_other","character","Currency name if Other selected","Freetext - currency name",99.17,99.18,"Left missing - structural skip pattern","99% missing - only filled when currency is Other"
 "income_context","character","Additional income context","Freetext - optional",89.14,89.15,"Left missing - structural skip pattern","89% missing - structural optional field"
