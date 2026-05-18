@@ -6,28 +6,47 @@ format:
   docx:
     toc: true
     number-sections: true
+    fig-width: 6.5
+    fig-height: 4
+    fig-dpi: 150
+execute:
+  echo: false
+  warning: false
+  message: false
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
-
-source("scripts/00_config.R")
+```{r setup}
+source("../scripts/00_config.R")
 
 library(dplyr)
 library(ggplot2)
 library(stringr)
+library(scales)
 
-df_raw     <- readRDS(paste0(raw_path, "raw_data.rds"))
-df_clean   <- readRDS(paste0(data_clean_path, "df_clean.rds"))
-df_imputed <- readRDS(paste0(data_clean_path, "df_imputed.rds"))
-data_dict  <- read.csv(paste0(outputs_path, "data_dictionary.csv"))
+df_raw     <- readRDS(paste0("../", raw_path, "raw_data.rds"))
+df_clean   <- readRDS(paste0("../", data_clean_path, "df_clean.rds"))
+df_imputed <- readRDS(paste0("../", data_clean_path, "df_imputed.rds"))
+data_dict  <- read.csv(paste0("../", outputs_path, "data_dictionary.csv"))
 
-colnames(df_raw) <- c("timestamp","age","industry","job_title","job_title_context",
-                       "annual_salary","additional_comp","currency","currency_other",
-                       "income_context","country","us_state","city","exp_overall",
-                       "exp_field","education","gender","race")
+df_imputed$additional_comp <- as.numeric(df_imputed$additional_comp)
 
-theme_set(theme_minimal(base_size = 11))
+colnames(df_raw) <- c("timestamp", "age", "industry", "job_title", "job_title_context",
+                       "annual_salary", "additional_comp", "currency", "currency_other",
+                       "income_context", "country", "us_state", "city", "exp_overall",
+                       "exp_field", "education", "gender", "race")
+
+report_theme <- theme_minimal(base_size = 11) +
+  theme(
+    plot.title    = element_text(face = "bold", size = 12),
+    plot.subtitle = element_text(size = 10, color = "grey40"),
+    axis.title    = element_text(size = 10),
+    axis.text     = element_text(size = 9),
+    legend.title  = element_text(size = 10),
+    legend.text   = element_text(size = 9),
+    plot.margin   = margin(10, 10, 10, 10)
+  )
+
+theme_set(report_theme)
 ```
 
 # Dataset Overview
@@ -40,22 +59,25 @@ theme_set(theme_minimal(base_size = 11))
 
 **Variables:** 18 variables covering salary, demographics, work experience and location
 
-**Pipeline outputs:** Cleaned dataset exported in four formats — .sav, .dta, .xlsx, .rds
+**Pipeline outputs:** Cleaned dataset exported in four formats - .sav, .dta, .xlsx, .rds
 
 **Assigned scope:** All 18 variables in the dataset
 
 # Data Quality Diagnostics Before Cleaning
 
-## Chart 1: Missingness Overview Before and After Cleaning
+## Missingness Overview Before and After Cleaning
 
 ```{r missingness-chart}
-pct_before <- round(colSums(is.na(df_raw[,1:18])) / nrow(df_raw) * 100, 2)
-pct_after  <- round(colSums(is.na(df_imputed[,1:18])) / nrow(df_imputed) * 100, 2)
+#| fig-width: 6.5
+#| fig-height: 5
 
-var_names <- c("timestamp","age","industry","job_title","job_title_context",
-               "annual_salary","additional_comp","currency","currency_other",
-               "income_context","country","us_state","city","exp_overall",
-               "exp_field","education","gender","race")
+pct_before <- round(colSums(is.na(df_raw[, 1:18])) / nrow(df_raw) * 100, 2)
+pct_after  <- round(colSums(is.na(df_imputed[, 1:18])) / nrow(df_imputed) * 100, 2)
+
+var_names <- c("timestamp", "age", "industry", "job_title", "job_title_context",
+               "annual_salary", "additional_comp", "currency", "currency_other",
+               "income_context", "country", "us_state", "city", "exp_overall",
+               "exp_field", "education", "gender", "race")
 
 miss_df <- rbind(
   data.frame(variable = var_names, pct_missing = pct_before, stage = "Before cleaning"),
@@ -68,209 +90,231 @@ ggplot(miss_df, aes(x = reorder(variable, pct_missing), y = pct_missing, fill = 
   geom_col(position = "dodge") +
   coord_flip() +
   scale_fill_manual(values = c("Before cleaning" = "#2E4057", "After cleaning" = "#4A90A4")) +
+  scale_y_continuous(limits = c(0, 100)) +
   labs(
     title = "Percentage Missing by Variable Before and After Cleaning",
-    x = "Variable",
-    y = "Percent Missing",
-    fill = "Stage"
-  )
+    x     = NULL,
+    y     = "Percent Missing (%)",
+    fill  = NULL
+  ) +
+  theme(legend.position = "bottom")
 ```
 
 ## Key Issues Identified
 
-- **Country:** 390 unique values found — USA alone had over 50 spelling variants
-- **Salary:** Range 0 to 6,000,070,000 — 136 entries below 1000, 34 zeros
-- **Additional compensation:** 7372 missing (26%) — survey wording suggests no bonus
+- **Country:** 390 unique values found - USA alone had over 50 spelling variants
+- **Salary:** Range 0 to 6,000,070,000 - 136 entries below 1,000, 34 zeros
+- **Additional compensation:** 7,372 missing (26%) - survey wording suggests no bonus
 - **Experience logic:** 265 entries where field experience exceeded overall experience
 - **City:** 187 remote worker entries, 121 missing, 10 invalid entries
-- **Gender:** Two near-identical categories merged into one
+- **Gender:** Two near-identical categories merged into one standard category
 
 # Cleaning Decisions
 
-## Stage 1: Whitespace Removal
-Leading and trailing whitespace stripped from all text columns. 1708 country entries had invisible spaces causing duplicates.
+## Stage 1 - Whitespace Removal
+Leading and trailing whitespace stripped from all text columns. 1,708 country entries had invisible spaces causing duplicate values.
 
-## Stage 2: Timestamp Flagging
-618 entries outside the 2021 survey period flagged but retained.
+## Stage 2 - Timestamp Flagging
+618 entries outside the 2021 survey period flagged but retained in the dataset.
 
-## Stage 3: Country Normalisation
-All known country variants mapped to canonical names. 26 invalid entries flagged. USA variants reduced from 50+ to one standard value.
+## Stage 3 - Country Normalisation
+All known country variants mapped to canonical names. 26 invalid entries flagged. USA variants reduced from over 50 to one standard value.
 
-## Stage 4: Salary Outlier Flagging
-IQR method applied. 34 zero salaries, 102 below 1000 and 1218 above the upper fence of 192750 flagged. No rows dropped.
+## Stage 4 - Salary Outlier Flagging
+IQR method applied. 34 zero salaries, 102 below 1,000 and 1,218 above the upper fence of 192,750 flagged. No rows dropped.
 
-## Stage 5: Additional Compensation Flagging
-7372 missing and 2045 above 500000 flagged.
+## Stage 5 - Additional Compensation Flagging
+7,372 missing and 2,045 above 500,000 flagged.
 
-## Stage 6: Industry Normalisation
-96 lowercase entries corrected. Library and Libraries merged into Library.
+## Stage 6 - Industry Normalisation
+96 lowercase entries corrected to title case. Library and Libraries merged into Library.
 
-## Stage 7: Job Title Flagging
+## Stage 7 - Job Title Flagging
 1 missing and 2 invalid entries flagged.
 
-## Stage 8: Gender Standardisation
-Prefer not to answer merged into Other or prefer not to answer.
+## Stage 8 - Gender Standardisation
+Prefer not to answer (1 entry) merged into Other or prefer not to answer (298 entries).
 
-## Stage 9: Experience Band Formatting
-5-7 years standardised to 5 - 7 years across both experience columns.
+## Stage 9 - Experience Band Formatting
+The band 5-7 years standardised to 5 - 7 years across both experience columns for consistency.
 
-## Stage 10: Experience Logic Checks
-265 impossible field vs overall experience entries flagged. 12 impossible age vs experience entries flagged.
+## Stage 10 - Experience Logic Checks
+265 impossible field vs overall experience entries flagged. 12 impossible age vs experience combinations flagged.
 
-## Stage 11: City Flagging
+## Stage 11 - City Flagging
 121 missing, 187 remote entries and 10 invalid entries flagged.
 
-## Stage 12: Multi-State Entries
-114 multi-state entries reduced to first state listed.
+## Stage 12 - Multi-State Entries
+114 US state entries with multiple states reduced to first state listed.
 
-## Stage 13: Currency Other Standardisation
+## Stage 13 - Currency Other Standardisation
 All values converted to uppercase. 8 numeric and 10 non-currency entries flagged.
 
-## Stage 14: Currency Country Cross Check
-110 USD entries for clearly non-US countries flagged.
+## Stage 14 - Currency Country Cross Check
+110 USD entries for clearly non-US countries flagged for transparency.
 
-## Stages 15 and 16: Missing Education and Race
+## Stages 15 and 16 - Missing Education and Race
 240 missing education and 196 missing race entries flagged for imputation.
 
 # Imputation Applied
 
 ```{r imputation-chart}
+#| fig-width: 6.5
+#| fig-height: 3.5
+
 imp_df <- data.frame(
-  variable = c("education", "gender", "race", "additional_comp"),
-  method   = c("Mode", "Constant", "Constant", "Constant"),
-  count    = c(240, 185, 196, 7372)
+  variable = c("additional_comp", "race", "gender", "education"),
+  method   = c("Constant", "Constant", "Constant", "Mode"),
+  count    = c(7372, 196, 185, 240)
 )
 
 ggplot(imp_df, aes(x = reorder(variable, count), y = count, fill = method)) +
-  geom_col() +
+  geom_col(width = 0.6) +
   coord_flip() +
   scale_fill_manual(values = c("Mode" = "#2E4057", "Constant" = "#4A90A4")) +
+  scale_y_log10(labels = comma) +
   labs(
-    title = "Entries Imputed by Variable and Method",
-    x = "Variable",
-    y = "Count Imputed",
-    fill = "Method"
-  )
+    title = "Number of Entries Imputed by Variable and Method (log scale)",
+    x     = NULL,
+    y     = "Count Imputed (log scale)",
+    fill  = "Method"
+  ) +
+  theme(legend.position = "bottom")
 ```
 
-| Variable | Method | Value Used | Count Imputed | Justification |
+| Variable | Method | Value Used | Count | Justification |
 |---|---|---|---|---|
 | Education | Mode | College degree | 240 | Dominant category at 48% |
 | Gender | Constant | Other or prefer not to answer | 185 | Missingness is informative |
 | Race | Constant | Prefer not to answer | 196 | Missingness is informative |
-| Additional comp | Constant | 0 | 7372 | Survey wording says if any |
+| Additional comp | Constant | 0 | 7,372 | Survey wording says if any |
 
 # Post Cleaning Summary
 
-**Rows:** `r nrow(df_imputed)` — no rows removed during cleaning
+**Rows:** `r nrow(df_imputed)` - no rows were removed during cleaning
 
-**Columns:** 18 original variables retained in final export
+**Columns:** 18 original variables retained in the final export
 
-## Summary Statistics
-
-```{r summary-stats}
-cat("Annual Salary Summary:\n")
-summary(df_imputed$annual_salary)
-```
-
-## Final Missingness After Cleaning
+## Final Missingness After Cleaning and Imputation
 
 ```{r final-missingness}
 final_miss <- data.frame(
-  variable = names(df_imputed)[1:18],
-  missing_count = colSums(is.na(df_imputed[,1:18])),
-  pct_missing = round(colSums(is.na(df_imputed[,1:18])) / nrow(df_imputed) * 100, 2)
+  variable      = names(df_imputed)[1:18],
+  missing_count = colSums(is.na(df_imputed[, 1:18])),
+  pct_missing   = round(colSums(is.na(df_imputed[, 1:18])) / nrow(df_imputed) * 100, 2)
 )
 
 final_miss <- final_miss[final_miss$missing_count > 0, ]
-knitr::kable(final_miss, row.names = FALSE,
-             col.names = c("Variable", "Missing Count", "Percent Missing"),
-             caption = "Variables with remaining missing values after cleaning and imputation")
+knitr::kable(
+  final_miss,
+  row.names = FALSE,
+  col.names = c("Variable", "Missing Count", "Percent Missing"),
+  caption   = "Variables with remaining missing values after cleaning and imputation"
+)
 ```
 
-## Chart 2: Annual Salary Distribution After Cleaning
+## Annual Salary Distribution After Cleaning
 
 ```{r salary-dist}
+#| fig-width: 6.5
+#| fig-height: 3.5
+
 sal_ok <- df_imputed$annual_salary[df_imputed$salary_flag == "ok"]
 
 ggplot(data.frame(salary = sal_ok), aes(x = salary)) +
-  geom_histogram(bins = 50, fill = "#2E4057", color = "white") +
-  scale_x_continuous(labels = scales::comma) +
+  geom_histogram(bins = 40, fill = "#2E4057", color = "white", linewidth = 0.2) +
+  scale_x_continuous(labels = comma) +
+  scale_y_continuous(labels = comma) +
   labs(
-    title = "Distribution of Annual Salary",
-    subtitle = "Flagged outliers excluded",
-    x = "Annual Salary (USD)",
-    y = "Count"
+    title    = "Distribution of Annual Salary After Cleaning",
+    subtitle = "Outlier-flagged entries excluded from view",
+    x        = "Annual Salary",
+    y        = "Count"
   )
 ```
 
-## Chart 3: Additional Compensation Distribution After Cleaning
+## Additional Compensation Distribution After Cleaning
 
 ```{r addcomp-dist}
-comp_ok <- df_imputed$additional_comp[df_imputed$additional_comp_flag == "ok" & 
-                                       df_imputed$additional_comp > 0]
+#| fig-width: 6.5
+#| fig-height: 3.5
+
+comp_ok <- df_imputed %>%
+  filter(
+    !is.na(additional_comp),
+    additional_comp > 0,
+    additional_comp <= 500000
+  ) %>%
+  pull(additional_comp)
 
 ggplot(data.frame(comp = comp_ok), aes(x = comp)) +
-  geom_histogram(bins = 50, fill = "#4A90A4", color = "white") +
-  scale_x_continuous(labels = scales::comma) +
+  geom_histogram(bins = 40, fill = "#4A90A4", color = "white", linewidth = 0.2) +
+  scale_x_continuous(labels = comma) +
+  scale_y_continuous(labels = comma) +
   labs(
-    title = "Distribution of Additional Compensation",
-    subtitle = "Non-zero values with no outlier flag shown",
-    x = "Additional Compensation",
-    y = "Count"
+    title    = "Distribution of Additional Compensation After Cleaning",
+    subtitle = "Non-zero values up to 500,000 shown - outliers excluded",
+    x        = "Additional Compensation",
+    y        = "Count"
   )
 ```
 
-## Chart 4: Observed vs Imputed Education
+## Observed vs Imputed Education
 
 ```{r obs-vs-imputed}
-edu_before <- data.frame(
-  education = c("College degree","Master's degree","Some college",
-                "PhD","Professional degree","High School","Missing"),
-  count  = c(13566, 8897, 2096, 1428, 1329, 659, 240),
-  status = "Before imputation"
-)
+#| fig-width: 6.5
+#| fig-height: 4
 
-edu_after <- data.frame(
-  education = c("College degree","Master's degree","Some college",
-                "PhD","Professional degree","High School"),
-  count  = c(13806, 8897, 2096, 1428, 1329, 659),
-  status = "After imputation"
+edu_all <- rbind(
+  data.frame(
+    education = c("College degree", "Master's degree", "Some college",
+                  "PhD", "Professional degree", "High School"),
+    count     = c(13566, 8897, 2096, 1428, 1329, 659),
+    status    = "Before imputation"
+  ),
+  data.frame(
+    education = c("College degree", "Master's degree", "Some college",
+                  "PhD", "Professional degree", "High School"),
+    count     = c(13806, 8897, 2096, 1428, 1329, 659),
+    status    = "After imputation"
+  )
 )
-
-edu_all <- rbind(edu_before[edu_before$education != "Missing", ], edu_after)
 
 ggplot(edu_all, aes(x = reorder(education, count), y = count, fill = status)) +
-  geom_col(position = "dodge") +
+  geom_col(position = "dodge", width = 0.7) +
   coord_flip() +
   scale_fill_manual(values = c("Before imputation" = "#2E4057",
                                 "After imputation"  = "#4A90A4")) +
+  scale_y_continuous(labels = comma) +
   labs(
     title = "Education Distribution Before and After Imputation",
-    x = "Education Level",
-    y = "Count",
-    fill = "Status"
-  )
+    x     = NULL,
+    y     = "Count",
+    fill  = NULL
+  ) +
+  theme(legend.position = "bottom")
 ```
 
-## Chart 5: Median Salary by Education Level
+## Median Salary by Education Level
 
 ```{r salary-by-education}
+#| fig-width: 6.5
+#| fig-height: 3.5
+
 sal_edu <- df_imputed %>%
-  filter(salary_flag == "ok") %>%
+  filter(salary_flag == "ok", !is.na(education)) %>%
   group_by(education) %>%
-  summarise(median_salary = median(annual_salary, na.rm = TRUE), .groups = "drop") %>%
-  filter(!is.na(education))
+  summarise(median_salary = median(annual_salary, na.rm = TRUE), .groups = "drop")
 
 ggplot(sal_edu, aes(x = reorder(education, median_salary), y = median_salary)) +
-  geom_col(fill = "#2E4057") +
+  geom_col(fill = "#2E4057", width = 0.6) +
   coord_flip() +
-  scale_y_continuous(labels = scales::comma) +
+  scale_y_continuous(labels = comma) +
   labs(
-    title = "Median Annual Salary by Education Level",
-    subtitle = "Based on flagged-ok salary entries only",
-    x = "Education Level",
-    y = "Median Salary"
+    title    = "Median Annual Salary by Education Level",
+    subtitle = "Based on salary entries with no outlier flag",
+    x        = NULL,
+    y        = "Median Salary"
   )
 ```
 
@@ -286,6 +330,6 @@ ggplot(sal_edu, aes(x = reorder(education, median_salary), y = median_salary)) +
 
 5. Timestamps outside the 2021 survey period suggest the survey remained open beyond the intended collection window. These entries are retained but flagged.
 
-6. Industry is a freetext field with 1089 unique values. Standardisation was limited to case correction and merging of obvious near-duplicates.
+6. Industry is a freetext field with 1,089 unique values. Standardisation was limited to case correction and merging of obvious near-duplicates.
 
 7. 265 entries where field experience exceeded overall experience were flagged but not corrected as the true values are unknown.
