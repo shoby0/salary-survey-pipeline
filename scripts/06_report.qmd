@@ -16,7 +16,9 @@ execute:
 ---
 
 ```{r setup}
-source("../scripts/00_config.R")
+#| include: false
+
+suppressMessages(source("../scripts/00_config.R"))
 
 library(dplyr)
 library(ggplot2)
@@ -71,13 +73,16 @@ theme_set(report_theme)
 #| fig-width: 6.5
 #| fig-height: 5
 
-pct_before <- round(colSums(is.na(df_raw[, 1:18])) / nrow(df_raw) * 100, 2)
-pct_after  <- round(colSums(is.na(df_imputed[, 1:18])) / nrow(df_imputed) * 100, 2)
-
 var_names <- c("timestamp", "age", "industry", "job_title", "job_title_context",
                "annual_salary", "additional_comp", "currency", "currency_other",
                "income_context", "country", "us_state", "city", "exp_overall",
                "exp_field", "education", "gender", "race")
+
+pct_before <- round(colSums(is.na(df_raw[, seq_along(var_names)])) / nrow(df_raw) * 100, 2)
+pct_after  <- round(colSums(is.na(df_imputed[, seq_along(var_names)])) / nrow(df_imputed) * 100, 2)
+
+names(pct_before) <- var_names
+names(pct_after)  <- var_names
 
 miss_df <- rbind(
   data.frame(variable = var_names, pct_missing = pct_before, stage = "Before cleaning"),
@@ -196,6 +201,8 @@ ggplot(imp_df, aes(x = reorder(variable, count), y = count, fill = method)) +
 **Columns:** 18 original variables retained in the final export
 
 ## Final Missingness After Cleaning and Imputation
+
+Several variables show high remaining missingness by design. The `job_title_context`, `income_context`, and `currency_other` columns are optional freetext fields that most respondents did not complete; this is structural missingness from the survey instrument, not a data quality failure. The `us_state` column is only applicable to US-based respondents.
 
 ```{r final-missingness}
 final_miss <- data.frame(
