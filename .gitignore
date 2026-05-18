@@ -1,0 +1,7 @@
+.Rhistory
+.Rproj.user/
+data_clean/
+data_raw/
+raw/raw_data.rds
+outputs/validation_report.txt
+scripts/06_report.docx
