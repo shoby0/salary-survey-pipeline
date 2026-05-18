@@ -1,115 +1,102 @@
 # Salary Survey Data Cleaning Pipeline
 
-**Author:** Shoaib  
-**Dataset:** Ask A Manager Salary Survey 2021  
-**Assessment:** Bureau of Statistics Guyana | Analytical Unit  
-**Duration:** 3 weeks  
-**Repo:** shoby0/salary-survey-pipeline
+**Author:** Shoaib
+**Dataset:** Ask A Manager Salary Survey 2021
+**Assessment:** Bureau of Statistics Guyana | Analytical Unit
+**Duration:** 3 weeks
+**Repository:** shoby0/salary-survey-pipeline
 
 ## Overview
 
-This repository contains an end to end data cleaning and imputation pipeline built in R, producing a cleaned dataset in multiple formats and an automated Word report.
-
-## Repository Structure
-
-```
-salary-survey-pipeline/
-│
-├── raw/                    # Raw dataset (unmodified)
-├── data/                   # Intermediate processed data
-├── outputs/                # Final cleaned datasets and report
-│   ├── cleaned.sav
-│   ├── cleaned.dta
-│   ├── cleaned.xlsx
-│   ├── cleaned.rds
-│   ├── data_dictionary.csv
-│   └── report.docx
-├── reports/                # Weekly Friday progress reports
-│   ├── week1_report.docx
-│   ├── week2_report.docx
-│   └── week3_report.docx
-├── presentation/           # Final PowerPoint
-│   └── final_presentation.pptx
-├── scripts/                # R pipeline scripts
-│   ├── 00_config.R
-│   ├── 01_ingest.R
-│   ├── 02_diagnose.R
-│   ├── 03_clean.R
-│   ├── 04_impute.R
-│   ├── 05_export.R
-│   └── 06_report.qmd
-├── run_pipeline.R          # Single entry point runs everything
-└── README.md
-```
+This repository contains an end to end data cleaning and imputation pipeline built in R. The pipeline ingests the Ask A Manager Salary Survey 2021 dataset, diagnoses data quality issues, applies cleaning and imputation across all 18 variables, exports the cleaned dataset in four formats and renders an automated Word report.
 
 ## How to Run
 
-Full instructions will be completed by end of Week 3.
+Clone the repository and open the project in RStudio. Make sure the raw dataset is placed in the raw/ folder. Then run a single command:
 
 ```r
-# Clone the repo
-# Open RStudio and open the project
-# Then run:
 source("run_pipeline.R")
 ```
 
-This single command will:
+This single command will execute the following in order:
 
-1. Ingest the raw data
-2. Run exploratory diagnostics
-3. Execute all cleaning stages
-4. Apply imputation
-5. Export cleaned data in all four formats
-6. Render the Word report
+1. Load all paths and parameters from 00_config.R
+2. Ingest the raw data and validate row and column counts
+3. Run exploratory diagnostics and log all findings
+4. Apply 16 cleaning stages one issue class at a time
+5. Apply imputation to education, gender, race and additional compensation
+6. Export the cleaned dataset in all four formats
+7. Render the automated Word report
+
+All outputs are saved to the outputs/ folder.
+
+## Repository Structure
+
+| Folder or File | Purpose |
+|---|---|
+| raw/ | Raw dataset stored here and never modified |
+| data_clean/ | Intermediate cleaned data saved between pipeline stages |
+| outputs/ | Final cleaned datasets in all four formats, data dictionary and Word report |
+| reports/ | Weekly Friday progress reports and problem inventory |
+| presentation/ | Final PowerPoint presentation |
+| scripts/ | All R pipeline scripts |
+| run_pipeline.R | Single entry point that runs the full pipeline |
+| README.md | This document |
+
+## Pipeline Scripts
+
+| Script | Purpose |
+|---|---|
+| 00_config.R | All paths, thresholds and parameters. Change settings here only. |
+| 01_ingest.R | Reads raw Excel file and validates row and column counts |
+| 02_diagnose.R | Exploratory diagnostics covering missingness, types, duplicates and ranges |
+| 03_clean.R | 16 cleaning stages applied one issue class at a time with logging |
+| 04_impute.R | Basic imputation applied to 4 variables with documented justification |
+| 05_export.R | Exports cleaned dataset as .sav, .dta, .xlsx and .rds |
+| 06_report.qmd | Quarto report rendered as Word document with 5 charts |
 
 ## Dataset
 
-**Source:** Ask A Manager Salary Survey 2021  
-**Raw size:** 28,215 rows x 18 columns  
-**Download date:** April 2026  
-**Assigned variables:** To be confirmed by evaluating office  
+| Field | Detail |
+|---|---|
+| Source | Ask A Manager Salary Survey 2021 |
+| Raw size | 28,215 rows x 18 columns |
+| Download date | April 2026 |
+| Scope | All 18 variables cleaned |
+
+## Outputs
+
+The outputs/ folder contains:
+
+- cleaned_salary_survey.rds — native R format preserving all attributes
+- cleaned_salary_survey.xlsx — Excel with cleaned data and data dictionary sheets
+- cleaned_salary_survey.sav — SPSS format with variable labels
+- cleaned_salary_survey.dta — Stata version 15 format with variable labels
+- data_dictionary.csv — one row per variable with all required fields
+- report.docx — automated Word report rendered by the pipeline
 
 ## Dependencies
 
-Full package list will be added after environment setup.
+Install required packages before running:
 
-Key R packages anticipated:
+```r
+install.packages(c("readxl", "dplyr", "stringr", "haven", "openxlsx"))
+```
+
+Quarto must be installed to render the Word report. Download from https://quarto.org
 
 | Package | Purpose |
-|---------|---------|
-| tidyverse, janitor | Data cleaning |
-| naniar, visdat | Missingness diagnostics |
-| stringdist | Approximate string matching |
-| haven, openxlsx | Multi format export |
-| VIM | Hot deck imputation |
-| quarto or rmarkdown | Automated Word report |
-
-## Pipeline Stages
-
-| Script | Purpose | Status |
-|--------|---------|--------|
-| 00_config.R | Paths, thresholds, parameters | Pending |
-| 01_ingest.R | Read raw data, validate load | Pending |
-| 02_diagnose.R | Exploratory diagnostics and logging | Pending |
-| 03_clean.R | Cleaning stages by issue class | Pending |
-| 04_impute.R | Basic imputation | Pending |
-| 05_export.R | Multi format export | Pending |
-| 06_report.qmd | Automated Word report | Pending |
-
-## Weekly Progress
-
-| Week | Focus | Friday Report |
-|------|-------|--------------|
-| Week 1 | Setup, ingest, diagnostics, problem inventory | Pending |
-| Week 2 | Cleaning pipeline, data dictionary, report scaffold | Pending |
-| Week 3 | Imputation, exports, finalise, present | Pending |
+|---|---|
+| readxl | Read raw Excel file |
+| dplyr | Data manipulation |
+| stringr | String cleaning and standardisation |
+| haven | Export to SPSS and Stata formats |
+| openxlsx | Export to Excel with multiple sheets |
 
 ## Notes
 
-Raw data is never edited in place. All transformations are applied in scripts only.
+Raw data is never edited in place. All transformations are applied to a working copy only.
 
-Python users read .sav and .dta outputs via pyreadstat. No separate Python export is produced.
+Python users can read the .sav and .dta outputs using pyreadstat. No separate Python export is produced.
 
-All cleaning decisions are logged with row counts before and after each stage.
-
-This README will be updated progressively as the pipeline is built.
+All cleaning decisions are logged with row counts before and after each stage. All parameters including thresholds and file paths are stored in 00_config.R only.
